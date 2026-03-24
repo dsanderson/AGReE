@@ -51,18 +51,18 @@ Core structure of the pipeline.  We have two classes:
 - `Pipeline`: a processor that abuses the `__or__` operator to allow pipe-chaining
 - `Filter`: a processor that takes a per-item filter function; skips the item if the filter is false-y
 
-## persistance.py
+### persistance.py
 
 Pipeline elements for loading/saving data.
 - `JsonlSource`: loads a JSON lines file; when called, ignores the argument and iterates over each line in the JSONL file.
 - `JsonlSink`: takes a JSON lines file; saves each item to a new line in the file, and returns the item.  reset flag will reset the file at initialization.
 
-## utilities.py
+### utilities.py
 
 Other pipeline utilities.
 - `Progress`: show progress through the pipeline in the console
 
-## coder.py
+### coder.py
 
 The bulk of the logic for coding and analysis
 - `Coder`: given instructions and labels (list of `(label name, label description)`) pairs and the litellm-compatible model ID, create a Processor that will label each item passed in.  We return as much as the input as we can (for repeatability), usage and cost.  The label is in the ['label'] field of the input, and the ['item'] contains the original item passed for coding.  This is mostly done to enable easy filtering + chained coding
