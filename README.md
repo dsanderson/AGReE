@@ -32,7 +32,7 @@ disagreements = aggregate_disagreements(JsonlSource('output.jsonl'))
 In practice, this gives a pretty bad kappa, like 0.5.  This makes sense, as the descritions are pretty ambiguous; how much is the rater to read between the lines?  That's where the `aggregate_disagreements` function comes in.  It lups together examples from any disagreed label pairs.  You could use this to manually update the instruction, **or** you can pass that info into an LLM as well!  We're working on a prompt template/call template to automate this loop, but either way this provides a simple flow for automated grounded research:
 
 ```mermaid
-flowchart AGReE;
+graph AGReE;
     A(["Write initial instructions"])
     A-->B["Sample data"]
     B-->G["Run rater on sample data"]
