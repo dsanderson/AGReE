@@ -37,13 +37,13 @@ def test_jsonl(tmp_path):
     out_file = tmp_path / "test_num_out.jsonl"
 
     pl = persistance.JsonlSource(in_file) | persistance.JsonlSink(out_file, reset=True)
-    back = list(pl([]))
+    back = list(pl(None))
     assert sum(back) == 15
     res = [json.loads(line) for line in out_file.read_text().splitlines()]
     assert res == back
 
     pl = persistance.JsonlSource(in_file) | persistance.JsonlSink(out_file)
-    back = list(pl([]))
+    back = list(pl(None))
     assert sum(back) == 15
     res = [json.loads(line) for line in out_file.read_text().splitlines()]
     assert sum(res) == sum(back) * 2
@@ -75,5 +75,38 @@ def test_coder(mock_litellm, tmp_path):
     score = review.cohens_kappa(pl(txts[:10]), labels)
     print(f"Cohen's Kappa: {score}")
 
-    dis = review.aggregate_disagreements(persistance.JsonlSource(str(out_file))([]))
+    dis = review.aggregate_disagreements(persistance.JsonlSource(str(out_file)))
     assert len(dis) > 0
+
+
+def test_catch_passes_through_on_success():
+    safe = utilities.Catch(processor.Processor(lambda x: x * 2))
+    assert list(safe([1, 2, 3])) == [2, 4, 6]
+
+
+def test_catch_skips_erroring_items():
+    def boom(x):
+        if x == 2:
+            raise ValueError("bad")
+        return x
+    safe = utilities.Catch(processor.Processor(boom))
+    assert list(safe([1, 2, 3])) == [1, 3]
+
+
+def test_catch_logs_errors_and_continues():
+    logged = []
+    error_sink = processor.Processor(lambda x: logged.append(x) or x)
+
+    def boom(x):
+        if x == 2:
+            raise ValueError("oops")
+        return x
+
+    safe = utilities.Catch(processor.Processor(boom), errors=error_sink)
+    results = list(safe([1, 2, 3]))
+
+    assert results == [1, 3]
+    assert len(logged) == 1
+    assert logged[0]['item'] == 2
+    assert logged[0]['error'] == 'oops'
+    assert 'ValueError' in logged[0]['traceback']

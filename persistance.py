@@ -10,6 +10,9 @@ class JsonlSource(Pipeline):
         for line in self.source_file:
             yield json.loads(line)
 
+    def __iter__(self):
+        return self(None)
+
 class JsonlSink(Pipeline):
     def __init__(self, source: Path, reset = False):
         if reset:

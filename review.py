@@ -20,7 +20,7 @@ def cohens_kappa(items, labels):
         n_k2[mapping[item['rater2']['result']]] += 1
     p_o = n_o/n
     p_e = sum(x[0]*x[1] for x in zip(n_k1, n_k2))/(n**2)
-    print(mapping, n_k1, n_k2, p_o, p_e)
+    # print(mapping, n_k1, n_k2, p_o, p_e)
     return (p_o-p_e)/(1-p_e)
 
 

@@ -52,7 +52,7 @@ print(f"\nRound 1 kappa: {kappa1:.3f}\n")
 # ── Revise ───────────────────────────────────────────────────────────────────
 
 print("=== Revising instructions ===")
-disagreements = aggregate_disagreements(JsonlSource(ROUND1)([]))
+disagreements = aggregate_disagreements(JsonlSource(ROUND1))
 summary       = summarize_disagreements(disagreements, pluck_for_rater_disagreement, instructions, labels)
 revision      = propose_revision(summary, model=MODEL_A, labels=labels)
 

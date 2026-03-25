@@ -29,9 +29,9 @@ anthropic_coder = Coder(instructions, labels, model="anthropic/claude-haiku-4-5"
 # Create a pipeline to load text from a JSON lines file, perform IRA, save results, print progress, and compute the score at the end
 pipeline = Rater(openai_coder, anthropic_coder) | Progress() | JsonlSink('output.jsonl')
 
-score = cohens_kappa(pipeline(JsonlSource('input.jsonl')([])), labels)
+score = cohens_kappa(pipeline(JsonlSource('input.jsonl')), labels)
 print(score)
-disagreements = aggregate_disagreements(JsonlSource('output.jsonl')([]))
+disagreements = aggregate_disagreements(JsonlSource('output.jsonl'))
 ```
 
 In practice, this gives a pretty bad kappa, like 0.5.  This makes sense, as the descriptions are pretty ambiguous; how much is the rater to read between the lines?  That's where `aggregate_disagreements` comes in — it lumps together examples from any disagreed label pairs.  From there, `summarize_disagreements` turns those into a Markdown report, and `propose_revision` passes it to an LLM to suggest updated instructions and label descriptions, allowing us to automate incremental improvements.
@@ -92,13 +92,14 @@ Core structure of the pipeline.  We have a few classes:
 ### persistance.py
 
 Pipeline elements for loading/saving data.
-- `JsonlSource`: loads a JSON lines file; when called, ignores the argument and iterates over each line in the JSONL file.
+- `JsonlSource`: loads a JSON lines file; iterable directly, so you can pass it straight to a pipeline or any function that expects an iterable (e.g. `cohens_kappa(pipeline(JsonlSource('out.jsonl')), labels)`)
 - `JsonlSink`: takes a JSON lines file; saves each item to a new line in the file, and returns the item.  reset flag will reset the file at initialization.
 
 ### utilities.py
 
 Other pipeline utilities.
-- `Progress`: show progress through the pipeline in the console
+- `Progress`: shows throughput and elapsed time in the console; also walks each item's `parent` chain to accumulate and display a running total cost (only shown when non-zero)
+- `Catch`: wraps a sub-pipeline; on success yields the results normally, on exception logs `{item, error, traceback}` to an optional error pipeline and continues to the next item — great for long runs where you don't want one bad API call to blow everything up
 
 ### coder.py
 
@@ -119,7 +120,4 @@ Scoring and iterative improvement.
 - `pluck_for_transform_review`: convenience pluck for the transformer case (shows the original input and the specific transformed output that was rated)
 
 ## To Do
-- Cost mgmt?
-- Clean up jsonlsource call
 - Caching/resuming
-- error handling!!
