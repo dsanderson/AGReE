@@ -25,6 +25,15 @@ class Nest(Processor):
             list(self.pipeline([item]))
             yield item
 
+class Expand(Processor):
+    def __init__(self, key='result'):
+        self.key = key
+
+    def __call__(self, inp):
+        for item in inp:
+            for response in item[self.key]:
+                yield {'result': response, 'parent': item}
+
 class Filter(Processor):
     def __init__(self, filter_func):
         self.filter_func = filter_func

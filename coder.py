@@ -41,10 +41,10 @@ def labeling_closure(instructions, labels, model, getter=lambda x: x):
 
         resp_json['input'] = messages
         resp_json['response_format'] = Labels.model_json_schema()
-        resp_json['label'] = json.loads(response.choices[0].message.content)['label']
+        resp_json['result'] = json.loads(response.choices[0].message.content)['label']
         resp_json['model'] = model
         resp_json['instructions'] = instructions
-        resp_json['item'] = item
+        resp_json['parent'] = item
         try:
             resp_json['cost'] = litellm.completion_cost(completion_response=response)
         except Exception:
@@ -55,18 +55,55 @@ def labeling_closure(instructions, labels, model, getter=lambda x: x):
 
 
 class Coder(Processor):
-    def __init__(self, instructions, labels, model):
-        super().__init__(labeling_closure(instructions, labels, model))
+    def __init__(self, instructions, labels, model, getter=lambda x: x):
+        super().__init__(labeling_closure(instructions, labels, model, getter))
     
 
 def rating_closure(coder1, coder2, eval_func):
     def rating_inner(item):
         resp1 = list(coder1([item]))[0]
         resp2 = list(coder2([item]))[0]
-        resp = {'rater1':resp1, 'rater2':resp2, 'agreement': eval_func(resp1['label'], resp2['label'])}
+        resp = {'result': eval_func(resp1['result'], resp2['result']), 'parent': item, 'rater1': resp1, 'rater2': resp2}
 
         return resp
     return rating_inner
+
+
+def transformer_closure(instructions, model):
+    system_prompt = instructions
+
+    class Responses(BaseModel):
+        responses: list[str]
+
+    def transformer_inner(item):
+        messages = [
+            {'role': 'system', 'content': system_prompt},
+            {'role': 'user', 'content': item}
+        ]
+        response = litellm.completion(messages=messages, model=model, response_format=Responses)
+        resp_json = {
+            'result': json.loads(response.choices[0].message.content)['responses'],
+            'parent': item,
+            'model': model,
+            'instructions': instructions,
+            'usage': {
+                'prompt_tokens': response.usage.prompt_tokens,
+                'completion_tokens': response.usage.completion_tokens,
+                'total_tokens': response.usage.total_tokens,
+            },
+        }
+        try:
+            resp_json['cost'] = litellm.completion_cost(completion_response=response)
+        except Exception:
+            resp_json['cost'] = None
+        return resp_json
+
+    return transformer_inner
+
+
+class Transformer(Processor):
+    def __init__(self, instructions, model):
+        super().__init__(transformer_closure(instructions, model))
 
 
 class Rater(Processor):
@@ -76,7 +113,7 @@ class Rater(Processor):
 
 class Disagreement(Filter):
     def __init__(self):
-        super().__init__(lambda x: not x.get('agreement', True))
+        super().__init__(lambda x: not x.get('result', True))
 
 
 def cohens_kappa(items, labels):
@@ -88,10 +125,10 @@ def cohens_kappa(items, labels):
     n = 0
     for item in items:
         n+=1
-        if item['agreement']:
+        if item['result']:
             n_o+=1
-        n_k1[mapping[item['rater1']['label']]] += 1
-        n_k2[mapping[item['rater2']['label']]] += 1
+        n_k1[mapping[item['rater1']['result']]] += 1
+        n_k2[mapping[item['rater2']['result']]] += 1
     p_o = n_o/n
     p_e = sum(x[0]*x[1] for x in zip(n_k1, n_k2))/(n**2)
     print(mapping, n_k1, n_k2, p_o, p_e)
@@ -100,13 +137,13 @@ def cohens_kappa(items, labels):
 def aggregate_disagreements(items, n_examples = 2, order_independent = True):
     disagreements = {}
     for item in items:
-        if not item['agreement']:
-            key = [item['rater1']['label'], item['rater2']['label']]
+        if not item['result']:
+            key = [item['rater1']['result'], item['rater2']['result']]
             if order_independent:
                 key = sorted(key)
             key = ', '.join(key)
             if key not in disagreements:
                 disagreements[key] = []
             if len(disagreements[key])<n_examples:
-                disagreements[key].append(item['rater1']['input'])
+                disagreements[key].append(item['parent'])
     return disagreements

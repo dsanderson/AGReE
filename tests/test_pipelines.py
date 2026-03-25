@@ -63,10 +63,10 @@ def test_coder(mock_litellm, tmp_path):
     txts = [t.strip() for t in raw.split(".") if t.strip()]
 
     resp = list(c1([txts[0]]))[0]
-    assert resp.get("label")
+    assert resp.get("result")
 
     resp = list(c2([txts[0]]))[0]
-    assert resp.get("label")
+    assert resp.get("result")
 
     out_file = tmp_path / "test_rater_out.jsonl"
     pl = coder.Rater(c1, c2) | utilities.Progress() | persistance.JsonlSink(str(out_file), reset=True)
