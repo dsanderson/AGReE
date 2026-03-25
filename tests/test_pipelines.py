@@ -5,6 +5,7 @@ from pathlib import Path
 import processor
 import persistance
 import coder
+import review
 import utilities
 
 DATA = Path(__file__).parent / "data"
@@ -71,8 +72,8 @@ def test_coder(mock_litellm, tmp_path):
     out_file = tmp_path / "test_rater_out.jsonl"
     pl = coder.Rater(c1, c2) | utilities.Progress() | persistance.JsonlSink(str(out_file), reset=True)
 
-    score = coder.cohens_kappa(pl(txts[:10]), labels)
+    score = review.cohens_kappa(pl(txts[:10]), labels)
     print(f"Cohen's Kappa: {score}")
 
-    dis = coder.aggregate_disagreements(persistance.JsonlSource(str(out_file))([]))
+    dis = review.aggregate_disagreements(persistance.JsonlSource(str(out_file))([]))
     assert len(dis) > 0
