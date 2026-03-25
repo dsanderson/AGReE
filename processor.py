@@ -16,6 +16,15 @@ class Pipeline(Processor):
     def __call__(self, inp):
         return self.second(self.first(inp))
     
+class Nest(Processor):
+    def __init__(self, pipeline):
+        self.pipeline = pipeline
+
+    def __call__(self, inp):
+        for item in inp:
+            list(self.pipeline([item]))
+            yield item
+
 class Filter(Processor):
     def __init__(self, filter_func):
         self.filter_func = filter_func
